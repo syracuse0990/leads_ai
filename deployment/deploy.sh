@@ -14,8 +14,8 @@ echo "[1/8] Installing system packages..."
 apt update && apt install -y \
     nginx \
     postgresql postgresql-contrib \
-    php8.3-fpm php8.3-cli php8.3-pgsql php8.3-mbstring php8.3-xml \
-    php8.3-curl php8.3-zip php8.3-gd php8.3-intl php8.3-bcmath \
+    php8.4-fpm php8.4-cli php8.4-pgsql php8.4-mbstring php8.4-xml \
+    php8.4-curl php8.4-zip php8.4-gd php8.4-intl php8.4-bcmath \
     supervisor \
     tesseract-ocr \
     certbot python3-certbot-nginx \
@@ -64,12 +64,12 @@ rm -f /etc/nginx/sites-enabled/default
 nginx -t && systemctl reload nginx
 
 cp "$APP_DIR/deployment/supervisor.conf" /etc/supervisor/conf.d/leads_ai.conf
-cp "$APP_DIR/deployment/php-fpm.conf" /etc/php/8.3/fpm/pool.d/leads_ai.conf
-rm -f /etc/php/8.3/fpm/pool.d/www.conf  # Remove default pool
+cp "$APP_DIR/deployment/php-fpm.conf" /etc/php/8.4/fpm/pool.d/leads_ai.conf
+rm -f /etc/php/8.4/fpm/pool.d/www.conf  # Remove default pool
 
 # 8. Start services
 echo "[8/8] Starting services..."
-systemctl restart php8.3-fpm
+systemctl restart php8.4-fpm
 supervisorctl reread
 supervisorctl update
 supervisorctl start leads_ai-workers:*
