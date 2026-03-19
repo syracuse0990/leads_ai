@@ -9,8 +9,37 @@ class ChunkingService
 
     public function __construct()
     {
-        $this->chunkSize = config('ai.chunk_size', 500);
-        $this->chunkOverlap = config('ai.chunk_overlap', 50);
+        $this->chunkSize = config('ai.chunk_size', 250);
+        $this->chunkOverlap = config('ai.chunk_overlap', 40);
+    }
+
+    /**
+     * Clean text before chunking: normalize whitespace, split stuck-together words,
+     * strip non-UTF8 characters, and fix common extraction artifacts.
+     */
+    protected function cleanText(string $text): string
+    {
+        // Strip non-UTF8 characters
+        $text = mb_convert_encoding($text, 'UTF-8', 'UTF-8');
+        $text = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $text);
+
+        // Insert space between lowercase and uppercase (camelCase → camel Case)
+        $text = preg_replace('/([a-z])([A-Z])/', '$1 $2', $text);
+
+        // Insert space between letters and numbers (Phone09629 → Phone 09629)
+        $text = preg_replace('/([a-zA-Z])(\d)/', '$1 $2', $text);
+        $text = preg_replace('/(\d)([a-zA-Z])/', '$1 $2', $text);
+
+        // Insert space between stuck-together email-like patterns won't break emails
+        // but split things like "Phonemarklaurence" → keep as-is (handled by camelCase above)
+
+        // Normalize multiple spaces/tabs to single space (preserve newlines)
+        $text = preg_replace('/[^\S\n]+/', ' ', $text);
+
+        // Normalize excessive newlines (3+ → 2)
+        $text = preg_replace('/\n{3,}/', "\n\n", $text);
+
+        return trim($text);
     }
 
     /**
@@ -20,6 +49,9 @@ class ChunkingService
      */
     public function chunk(string $text): array
     {
+        // Clean text before chunking
+        $text = $this->cleanText($text);
+
         // Split into paragraphs first
         $paragraphs = preg_split('/\n\s*\n/', $text, -1, PREG_SPLIT_NO_EMPTY);
         $paragraphs = array_map('trim', $paragraphs);

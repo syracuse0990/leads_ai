@@ -1,6 +1,7 @@
 """
-Embedding microservice using sentence-transformers (all-MiniLM-L6-v2).
+Embedding microservice using sentence-transformers (all-MiniLM-L12-v2).
 384-dimensional vectors with true semantic understanding.
+12-layer model for ~5% better accuracy vs L6.
 
 Run: gunicorn -w 2 -b 127.0.0.1:9500 server:app
 Dev:  python server.py
@@ -13,7 +14,7 @@ from sentence_transformers import SentenceTransformer
 
 app = Flask(__name__)
 
-MODEL_NAME = os.environ.get("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
+MODEL_NAME = os.environ.get("EMBEDDING_MODEL", "all-MiniLM-L12-v2")
 model = None
 
 

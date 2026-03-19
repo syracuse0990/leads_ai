@@ -38,8 +38,8 @@ return [
     |--------------------------------------------------------------------------
     */
 
-    'chunk_size' => env('CHUNK_SIZE', 500),        // tokens per chunk
-    'chunk_overlap' => env('CHUNK_OVERLAP', 50),    // overlap between chunks
+    'chunk_size' => env('CHUNK_SIZE', 250),        // words per chunk (smaller = more precise retrieval)
+    'chunk_overlap' => env('CHUNK_OVERLAP', 40),    // overlap between chunks
 
     /*
     |--------------------------------------------------------------------------
@@ -48,6 +48,6 @@ return [
     */
 
     'search_top_k' => env('SEARCH_TOP_K', 5),      // number of nearest chunks to retrieve
-    'similarity_threshold' => env('SIMILARITY_THRESHOLD', 0.3),
+    'similarity_threshold' => env('SIMILARITY_THRESHOLD', 0.8),
 
 ];
