@@ -106,7 +106,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { useDocumentProgress } from '@/composables/useWebSocket.js';
@@ -118,6 +118,17 @@ const props = defineProps({
 });
 
 const { progress, getProgress } = useDocumentProgress();
+
+// Auto-reload page data when any document finishes processing
+watch(progress, (newProgress) => {
+    for (const [docId, p] of newProgress) {
+        if (p.stage === 'completed' || p.stage === 'failed') {
+            // Reload Inertia page data to get updated DB status, topic, etc.
+            router.reload({ only: ['documents'], preserveState: true });
+            return;
+        }
+    }
+}, { deep: true });
 
 const searchQuery = ref(props.filters?.search || '');
 const selectedTopic = ref(props.filters?.topic_id || '');

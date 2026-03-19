@@ -101,8 +101,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
-import { Link, useForm, usePage } from '@inertiajs/vue3';
+import { ref, computed, onMounted, watch } from 'vue';
+import { Link, useForm, usePage, router as inertiaRouter } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { useDocumentProgress } from '@/composables/useWebSocket.js';
 
@@ -133,6 +133,16 @@ const allDone = computed(() => {
         const p = getDocProgress(doc.id);
         return p && (p.stage === 'completed' || p.stage === 'failed');
     });
+});
+
+// Auto-redirect to Documents table when all files are done
+let redirectTimer = null;
+watch(allDone, (done) => {
+    if (done && !redirectTimer) {
+        redirectTimer = setTimeout(() => {
+            inertiaRouter.visit('/documents');
+        }, 1500);
+    }
 });
 
 function handleFileSelect(e) {
