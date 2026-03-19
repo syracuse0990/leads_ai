@@ -39,7 +39,7 @@ class DocumentController extends Controller
     {
         $request->validate([
             'files' => 'required|array|min:1',
-            'files.*' => 'required|file|max:51200|mimes:pdf,png,jpg,jpeg,gif,webp,txt,md,csv,doc,docx,xls,xlsx,ppt,pptx',
+            'files.*' => 'required|file|max:51200|mimes:pdf,png,jpg,jpeg,gif,webp,txt,md,csv,doc,docx,xls,xlsx',
         ]);
 
         $uploaded = [];
