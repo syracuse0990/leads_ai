@@ -85,6 +85,75 @@ class KimiService
     }
 
     /**
+     * Analyze an image: describe visual content AND extract any text.
+     * Single API call that works for both photos and text-heavy images.
+     */
+    public function analyzeImage(string $filePath): string
+    {
+        $imageData = base64_encode(file_get_contents($filePath));
+        $mimeType = mime_content_type($filePath) ?: 'image/png';
+
+        $response = null;
+        for ($attempt = 1; $attempt <= 3; $attempt++) {
+            $response = Http::withHeaders([
+                'Authorization' => "Bearer {$this->apiKey}",
+                'Content-Type' => 'application/json',
+            ])->timeout(120)->post("{$this->baseUrl}/chat/completions", [
+                'model' => $this->model,
+                'messages' => [
+                    [
+                        'role' => 'system',
+                        'content' => 'You are an image analysis assistant. For every image, provide TWO sections:
+
+1. **DESCRIPTION**: Describe what you see in detail — objects, people, animals, plants, scenery, colors, actions, layout, and context.
+
+2. **TEXT CONTENT**: If the image contains any text (signs, labels, documents, handwriting, etc.), extract it exactly as it appears. If there is no text, write "None".
+
+Always provide both sections, even if one is brief.',
+                    ],
+                    [
+                        'role' => 'user',
+                        'content' => [
+                            [
+                                'type' => 'image_url',
+                                'image_url' => [
+                                    'url' => "data:{$mimeType};base64,{$imageData}",
+                                ],
+                            ],
+                            [
+                                'type' => 'text',
+                                'text' => 'Analyze this image. Describe everything you see, and extract any text if present.',
+                            ],
+                        ],
+                    ],
+                ],
+                'temperature' => 0.3,
+            ]);
+
+            if ($response->successful()) {
+                break;
+            }
+
+            if ($response->status() === 429 && $attempt < 3) {
+                sleep(3 * $attempt);
+                continue;
+            }
+
+            break;
+        }
+
+        if ($response->failed()) {
+            Log::error('KIMI image analysis failed', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+            throw new \RuntimeException('Failed to analyze image via KIMI vision: ' . $response->body());
+        }
+
+        return $response->json('choices.0.message.content', '');
+    }
+
+    /**
      * Describe the visual content of an image using KIMI k2.5 multimodal vision.
      * Used for photos/images where text extraction yields nothing useful.
      */

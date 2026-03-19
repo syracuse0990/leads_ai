@@ -113,27 +113,8 @@ class TextExtractorService
 
     protected function extractFromImage(string $filePath): string
     {
-        // First try text extraction (for documents, screenshots with text, etc.)
-        $text = $this->kimiService->extractTextFromImage($filePath);
-        $cleanText = preg_replace('/[\x00-\x1F\x7F]+/', '', trim($text));
-
-        // Check if KIMI actually found text vs returning a "no text" explanation
-        $noTextPatterns = ['no text', 'no visible text', 'no readable text', 'does not contain', 'not present', 'not visible'];
-        $lowerText = mb_strtolower($cleanText);
-        $isNoTextResponse = false;
-        foreach ($noTextPatterns as $pattern) {
-            if (str_contains($lowerText, $pattern)) {
-                $isNoTextResponse = true;
-                break;
-            }
-        }
-
-        if (!$isNoTextResponse && !empty($cleanText) && mb_strlen($cleanText) > 20) {
-            return $text;
-        }
-
-        // No meaningful text found — describe the image content instead
-        return $this->kimiService->describeImage($filePath);
+        // Single call: describe image AND extract any text present
+        return $this->kimiService->analyzeImage($filePath);
     }
 
     protected function extractFromWord(string $filePath): string
