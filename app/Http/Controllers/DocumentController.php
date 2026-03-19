@@ -77,33 +77,4 @@ class DocumentController extends Controller
 
         return redirect()->route('documents.index');
     }
-
-    public function storeUrl(Request $request)
-    {
-        $request->validate([
-            'url' => 'required|url|max:2048',
-        ]);
-
-        $url = $request->input('url');
-        $host = parse_url($url, PHP_URL_HOST);
-        $path = parse_url($url, PHP_URL_PATH) ?: '/';
-        $name = $host . ' - ' . trim(basename($path) ?: 'index', '/');
-
-        $document = Document::create([
-            'topic_id' => null,
-            'filename' => 'url_' . md5($url),
-            'original_name' => $name,
-            'mime_type' => 'text/html',
-            'file_path' => '',
-            'file_size' => 0,
-            'source_url' => $url,
-            'status' => 'pending',
-        ]);
-
-        ProcessDocument::dispatch($document);
-
-        return redirect()->back()->with('uploadedDocuments', [
-            ['id' => $document->id, 'name' => $name],
-        ]);
-    }
 }

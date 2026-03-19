@@ -3,27 +3,11 @@
         <div class="mb-8">
             <Link href="/documents" class="text-sm text-gray-400 hover:text-white transition">&larr; Back to AI Trainer</Link>
             <h1 class="text-3xl font-bold mt-2">Train AI</h1>
-            <p class="text-gray-400 mt-1">Upload files or provide a website link to train your AI. Topics are auto-assigned by AI.</p>
+            <p class="text-gray-400 mt-1">Upload files to train your AI. Topics are auto-assigned by AI.</p>
         </div>
 
         <!-- Phase 1: Upload Form -->
         <form v-if="!processing" @submit.prevent="upload" class="max-w-2xl">
-            <!-- Tab Switcher -->
-            <div class="flex gap-1 mb-6 rounded-lg bg-gray-900 border border-gray-800 p-1 w-fit">
-                <button type="button" @click="uploadMode = 'file'"
-                    :class="uploadMode === 'file' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-white'"
-                    class="rounded-md px-4 py-1.5 text-sm font-medium transition">
-                    Files
-                </button>
-                <button type="button" @click="uploadMode = 'url'"
-                    :class="uploadMode === 'url' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-white'"
-                    class="rounded-md px-4 py-1.5 text-sm font-medium transition">
-                    Website Link
-                </button>
-            </div>
-
-            <!-- FILE UPLOAD MODE -->
-            <template v-if="uploadMode === 'file'">
             <!-- File Drop Zone -->
             <div class="mb-6">
                 <label class="block text-sm font-medium text-gray-400 mb-2">Files</label>
@@ -72,26 +56,6 @@
                 </div>
                 <p class="text-xs text-gray-500 mt-1">Uploading... {{ form.progress.percentage }}%</p>
             </div>
-            </template>
-
-            <!-- URL UPLOAD MODE -->
-            <template v-if="uploadMode === 'url'">
-            <div class="mb-6">
-                <label class="block text-sm font-medium text-gray-400 mb-2">Website URL</label>
-                <div class="flex gap-3">
-                    <input v-model="urlForm.url" type="url" placeholder="https://example.com/article"
-                        class="flex-1 rounded-lg border border-gray-700 bg-gray-900 px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:border-indigo-500 focus:outline-none transition" />
-                </div>
-                <p class="text-gray-600 text-xs mt-2">Paste a webpage link and the AI will extract and learn from its content.</p>
-                <p v-if="urlForm.errors.url" class="mt-1 text-sm text-red-400">{{ urlForm.errors.url }}</p>
-            </div>
-
-            <button type="button" @click="submitUrl" :disabled="urlForm.processing || !urlForm.url"
-                class="rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50 transition">
-                <span v-if="urlForm.processing">Submitting...</span>
-                <span v-else>Train from URL</span>
-            </button>
-            </template>
         </form>
 
         <!-- Phase 2: Processing Progress -->
@@ -145,7 +109,6 @@ import { useDocumentProgress } from '@/composables/useWebSocket.js';
 const isDragging = ref(false);
 const processing = ref(false);
 const uploadedDocs = ref([]);
-const uploadMode = ref('file');
 
 const { progress: wsProgress, getProgress: getDocProgress } = useDocumentProgress();
 
@@ -153,10 +116,6 @@ const page = usePage();
 
 const form = useForm({
     files: [],
-});
-
-const urlForm = useForm({
-    url: '',
 });
 
 // Check if we returned from a successful upload with flash data
@@ -234,20 +193,11 @@ function upload() {
     });
 }
 
-function submitUrl() {
-    urlForm.post('/documents/url', {
-        preserveScroll: true,
-    });
-}
-
 function resetUpload() {
     processing.value = false;
     uploadedDocs.value = [];
-    uploadMode.value = 'file';
     form.reset();
     form.clearErrors();
-    urlForm.reset();
-    urlForm.clearErrors();
 }
 
 function docStatusLabel(doc) {
