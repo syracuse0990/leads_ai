@@ -70,7 +70,7 @@ class DocumentController extends Controller
 
     public function destroy(Document $document)
     {
-        if ($document->file_path) {
+        if ($document->file_path && $document->file_path !== '') {
             Storage::disk('local')->delete($document->file_path);
         }
         $document->delete();
@@ -91,10 +91,10 @@ class DocumentController extends Controller
 
         $document = Document::create([
             'topic_id' => null,
-            'filename' => null,
+            'filename' => 'url_' . md5($url),
             'original_name' => $name,
             'mime_type' => 'text/html',
-            'file_path' => null,
+            'file_path' => '',
             'file_size' => 0,
             'source_url' => $url,
             'status' => 'pending',
