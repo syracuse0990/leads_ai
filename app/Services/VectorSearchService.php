@@ -15,7 +15,7 @@ class VectorSearchService
     {
         $this->embeddingService = $embeddingService;
         $this->topK = config('ai.search_top_k', 5);
-        $this->threshold = config('ai.similarity_threshold', 0.7);
+        $this->threshold = config('ai.similarity_threshold', 0.8);
     }
 
     /**
@@ -56,17 +56,19 @@ class VectorSearchService
         if (!empty($keywords)) {
             $boostParts = [];
             foreach ($keywords as $kw) {
-                $boostParts[] = "CASE WHEN LOWER(dc.content) LIKE ? THEN 0.15 ELSE 0 END";
+                $boostParts[] = "CASE WHEN LOWER(dc.content) LIKE ? THEN 0.25 ELSE 0 END";
                 $bindings[] = '%' . str_replace(['%', '_'], ['\%', '\_'], $kw) . '%';
             }
             foreach ($keywords as $kw) {
-                $boostParts[] = "CASE WHEN LOWER(d.original_name) LIKE ? THEN 0.2 ELSE 0 END";
+                $boostParts[] = "CASE WHEN LOWER(d.original_name) LIKE ? THEN 0.3 ELSE 0 END";
                 $bindings[] = '%' . str_replace(['%', '_'], ['\%', '\_'], $kw) . '%';
             }
             $keywordBoost = implode(' + ', $boostParts);
         }
 
         // pgvector <=> operator for cosine distance (uses HNSW index)
+        // Filter on combined_score (vector_dist - keyword_boost) so keyword matches
+        // can rescue high-distance but textually relevant chunks
         $sql = "
             SELECT *, (vector_dist - keyword_boost) AS combined_score FROM (
                 SELECT dc.id, dc.document_id, dc.content, dc.chunk_index, dc.metadata,
@@ -85,7 +87,7 @@ class VectorSearchService
 
         $sql .= "
             ) sub
-            WHERE vector_dist < ?
+            WHERE (vector_dist - keyword_boost) < ?
             ORDER BY combined_score ASC
             LIMIT ?
         ";
