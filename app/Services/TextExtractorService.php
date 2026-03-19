@@ -54,8 +54,58 @@ class TextExtractorService
             return $output;
         }
 
-        // Last resort: OCR via KIMI vision (treat each page as image)
-        return '';
+        // Last resort: OCR scanned PDF pages via KIMI vision
+        return $this->ocrPdfViaKimi($filePath);
+    }
+
+    /**
+     * Convert PDF pages to images using pdftoppm, then OCR each via KIMI vision.
+     */
+    protected function ocrPdfViaKimi(string $filePath): string
+    {
+        $tempDir = sys_get_temp_dir() . '/pdf_ocr_' . uniqid();
+        mkdir($tempDir, 0755, true);
+
+        try {
+            $escapedPath = escapeshellarg($filePath);
+            $escapedDir = escapeshellarg($tempDir . '/page');
+
+            // Convert PDF pages to JPEG images (150 DPI for speed/quality balance)
+            shell_exec("pdftoppm -jpeg -r 150 {$escapedPath} {$escapedDir} 2>/dev/null");
+
+            // Collect page images sorted by name
+            $images = glob($tempDir . '/page-*.jpg');
+            sort($images);
+
+            if (empty($images)) {
+                return '';
+            }
+
+            // Limit to first 50 pages to avoid excessive API calls
+            $images = array_slice($images, 0, 50);
+
+            $fullText = '';
+            foreach ($images as $i => $imagePath) {
+                try {
+                    $pageText = $this->kimiService->extractTextFromImage($imagePath);
+                    if (!empty(trim($pageText))) {
+                        $fullText .= $pageText . "\n\n";
+                    }
+                } catch (\Exception $e) {
+                    \Illuminate\Support\Facades\Log::warning("OCR failed for page " . ($i + 1), [
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
+            return trim($fullText);
+        } finally {
+            // Clean up temp images
+            array_map('unlink', glob($tempDir . '/*'));
+            if (is_dir($tempDir)) {
+                rmdir($tempDir);
+            }
+        }
     }
 
     protected function extractFromImage(string $filePath): string
