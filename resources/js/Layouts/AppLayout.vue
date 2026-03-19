@@ -86,7 +86,10 @@
 import { ref, onMounted, onUnmounted } from 'vue';
 import { Link, usePage, router } from '@inertiajs/vue3';
 import { computed, TransitionGroup } from 'vue';
-import { useToastNotifications, useQueueStats } from '@/composables/useWebSocket.js';
+import { useToastNotifications, useQueueStats, useAiActivity } from '@/composables/useWebSocket.js';
+
+// Initialize global AI activity WebSocket channel (persists across page navigations)
+useAiActivity();
 
 const page = usePage();
 const currentPath = computed(() => page.url);

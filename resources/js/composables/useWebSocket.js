@@ -43,28 +43,62 @@ export function useWebSocket(channelName) {
     return { channel, listen };
 }
 
-/**
- * Track document processing progress.
- */
-export function useDocumentProgress() {
-    const progress = ref(new Map());
+// ── AI Activity: global persistent channel ──────────────
+// Shared state that persists across page navigations.
+// Subscribed once from AppLayout, readable from any page.
+const aiDocumentProgress = ref(new Map());
+let aiActivityBound = false;
 
-    const { listen } = useWebSocket('documents');
+export function useAiActivity() {
+    if (!aiActivityBound) {
+        aiActivityBound = true;
+        const pusher = getPusher();
+        const channel = pusher.subscribe('ai-activity');
 
-    listen('processing.progress', (data) => {
-        progress.value = new Map(progress.value);
-        progress.value.set(data.document_id, {
-            stage: data.stage,
-            percent: data.percent,
-            message: data.message,
+        channel.bind('document.progress', (raw) => {
+            const data = parseData(raw);
+            aiDocumentProgress.value = new Map(aiDocumentProgress.value);
+            aiDocumentProgress.value.set(data.document_id, {
+                stage: data.stage,
+                percent: data.percent,
+                message: data.message,
+            });
         });
-    });
 
-    function getProgress(documentId) {
-        return progress.value.get(documentId) || null;
+        channel.bind('document.completed', (raw) => {
+            const data = parseData(raw);
+            aiDocumentProgress.value = new Map(aiDocumentProgress.value);
+            aiDocumentProgress.value.set(data.document_id, {
+                stage: 'completed',
+                percent: 100,
+                message: data.message || 'Processing complete',
+            });
+        });
+
+        channel.bind('document.failed', (raw) => {
+            const data = parseData(raw);
+            aiDocumentProgress.value = new Map(aiDocumentProgress.value);
+            aiDocumentProgress.value.set(data.document_id, {
+                stage: 'failed',
+                percent: 0,
+                message: data.message || 'Processing failed',
+            });
+        });
     }
 
-    return { progress, getProgress };
+    function getProgress(documentId) {
+        return aiDocumentProgress.value.get(documentId) || null;
+    }
+
+    return { progress: aiDocumentProgress, getProgress };
+}
+
+/**
+ * Track document processing progress (legacy per-page channel).
+ * Now wraps the global ai-activity store.
+ */
+export function useDocumentProgress() {
+    return useAiActivity();
 }
 
 /**

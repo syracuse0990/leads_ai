@@ -60,11 +60,20 @@ class WebSocketService
 
     public function documentProgress(int $documentId, string $stage, int $percent, ?string $message = null): bool
     {
-        return $this->trigger('documents', 'processing.progress', [
+        $msg = $message ?? $this->stageLabel($stage);
+
+        // Send on ai-activity channel (global, persistent subscription)
+        $eventName = match ($stage) {
+            'completed' => 'document.completed',
+            'failed' => 'document.failed',
+            default => 'document.progress',
+        };
+
+        return $this->trigger('ai-activity', $eventName, [
             'document_id' => $documentId,
             'stage' => $stage,
             'percent' => $percent,
-            'message' => $message ?? $this->stageLabel($stage),
+            'message' => $msg,
         ]);
     }
 
