@@ -13,7 +13,7 @@
                         <div class="hidden md:flex gap-4">
                             <Link href="/" :class="navClass('/')">Dashboard</Link>
                             <Link href="/topics" :class="navClass('/topics')">Topics</Link>
-                            <Link href="/documents" :class="navClass('/documents')">Documents</Link>
+                            <Link href="/documents" :class="navClass('/documents')">AI Trainer</Link>
                             <Link href="/chat" :class="navClass('/chat')">Chat</Link>
                         </div>
                     </div>
@@ -41,7 +41,7 @@
                 <div v-if="mobileOpen" class="md:hidden border-t border-gray-800 py-3 space-y-1">
                     <Link href="/" :class="mobileNavClass('/')" @click="mobileOpen = false">Dashboard</Link>
                     <Link href="/topics" :class="mobileNavClass('/topics')" @click="mobileOpen = false">Topics</Link>
-                    <Link href="/documents" :class="mobileNavClass('/documents')" @click="mobileOpen = false">Documents</Link>
+                    <Link href="/documents" :class="mobileNavClass('/documents')" @click="mobileOpen = false">AI Trainer</Link>
                     <Link href="/chat" :class="mobileNavClass('/chat')" @click="mobileOpen = false">Chat</Link>
                 </div>
             </div>

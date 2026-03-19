@@ -47,8 +47,12 @@ class ProcessDocument implements ShouldQueue
 
         try {
             // 1. Extract text
-            $filePath = Storage::disk('local')->path($this->document->file_path);
-            $text = $extractor->extract($filePath, $this->document->mime_type);
+            if ($this->document->source_url) {
+                $text = $extractor->extractFromUrl($this->document->source_url);
+            } else {
+                $filePath = Storage::disk('local')->path($this->document->file_path);
+                $text = $extractor->extract($filePath, $this->document->mime_type);
+            }
 
             if (empty(trim($text))) {
                 throw new \RuntimeException('No text could be extracted from the document.');

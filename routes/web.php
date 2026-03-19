@@ -18,6 +18,7 @@ Route::delete('/topics/{topic}', [TopicController::class, 'destroy'])->name('top
 Route::get('/documents', [DocumentController::class, 'index'])->name('documents.index');
 Route::get('/documents/upload', [DocumentController::class, 'create'])->name('documents.create');
 Route::post('/documents', [DocumentController::class, 'store'])->name('documents.store');
+Route::post('/documents/url', [DocumentController::class, 'storeUrl'])->name('documents.storeUrl');
 Route::delete('/documents/{document}', [DocumentController::class, 'destroy'])->name('documents.destroy');
 
 // Chat

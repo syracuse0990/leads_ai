@@ -1,9 +1,9 @@
 <template>
     <AppLayout>
         <div class="flex items-center justify-between mb-8">
-            <h1 class="text-3xl font-bold">Documents</h1>
+            <h1 class="text-3xl font-bold">AI Trainer</h1>
             <Link href="/documents/upload" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition">
-                + Upload Files
+                + Train AI
             </Link>
         </div>
 
@@ -54,7 +54,7 @@
                     <tr v-for="doc in documents.data" :key="doc.id" class="hover:bg-gray-900/50">
                         <td class="px-4 py-3 font-medium text-white">{{ doc.original_name }}</td>
                         <td class="px-4 py-3 text-gray-400">{{ getDocTopic(doc) }}</td>
-                        <td class="px-4 py-3 text-gray-400">{{ formatType(doc.mime_type) }}</td>
+                        <td class="px-4 py-3 text-gray-400">{{ formatType(doc) }}</td>
                         <td class="px-4 py-3 text-gray-400">{{ formatSize(doc.file_size) }}</td>
                         <td class="px-4 py-3">
                             <div class="min-w-[140px]">
@@ -205,12 +205,13 @@ function deleteDoc() {
     }
 }
 
-function formatType(mime) {
+function formatType(doc) {
+    if (doc.source_url) return 'URL';
+    const mime = doc.mime_type;
     if (mime?.includes('pdf')) return 'PDF';
     if (mime?.startsWith('image/')) return 'Image';
     if (mime?.includes('word') || mime?.includes('.document')) return 'Word';
     if (mime?.includes('sheet') || mime?.includes('excel')) return 'Excel';
-    if (mime?.includes('presentation') || mime?.includes('powerpoint')) return 'PPT';
     if (mime?.includes('text')) return 'Text';
     return mime || 'Unknown';
 }

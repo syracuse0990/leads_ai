@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use PhpOffice\PhpWord\IOFactory as WordIOFactory;
 use PhpOffice\PhpSpreadsheet\IOFactory as SpreadsheetIOFactory;
@@ -352,5 +353,63 @@ class TextExtractorService
     protected function extractFromText(string $filePath): string
     {
         return file_get_contents($filePath);
+    }
+
+    /**
+     * Extract readable text content from a URL.
+     */
+    public function extractFromUrl(string $url): string
+    {
+        $response = Http::timeout(30)->withHeaders([
+            'User-Agent' => 'Mozilla/5.0 (compatible; LeadsAI/1.0)',
+        ])->get($url);
+
+        if ($response->failed()) {
+            throw new \RuntimeException("Failed to fetch URL: HTTP {$response->status()}");
+        }
+
+        $html = $response->body();
+
+        // Remove script, style, nav, footer, header tags
+        $html = preg_replace('/<(script|style|nav|footer|header|noscript)\b[^>]*>.*?<\/\1>/si', '', $html);
+
+        // Remove HTML comments
+        $html = preg_replace('/<!--.*?-->/s', '', $html);
+
+        // Extract title
+        $title = '';
+        if (preg_match('/<title[^>]*>(.*?)<\/title>/si', $html, $m)) {
+            $title = html_entity_decode(trim($m[1]), ENT_QUOTES, 'UTF-8');
+        }
+
+        // Try to extract main content area first
+        $content = $html;
+        if (preg_match('/<(article|main)\b[^>]*>(.*?)<\/\1>/si', $html, $m)) {
+            $content = $m[2];
+        }
+
+        // Convert block elements to newlines
+        $content = preg_replace('/<(br|p|div|h[1-6]|li|tr|blockquote)\b[^>]*>/i', "\n", $content);
+
+        // Strip remaining HTML tags
+        $content = strip_tags($content);
+
+        // Decode entities
+        $content = html_entity_decode($content, ENT_QUOTES, 'UTF-8');
+
+        // Clean up whitespace
+        $content = preg_replace('/[ \t]+/', ' ', $content);
+        $content = preg_replace('/\n{3,}/', "\n\n", $content);
+        $content = trim($content);
+
+        if ($title && !str_starts_with($content, $title)) {
+            $content = "# {$title}\n\n{$content}";
+        }
+
+        if (mb_strlen($content) < 20) {
+            throw new \RuntimeException('No meaningful text content could be extracted from the URL.');
+        }
+
+        return $content;
     }
 }

@@ -15,6 +15,7 @@ class Document extends Model
         'mime_type',
         'file_path',
         'file_size',
+        'source_url',
         'status',
         'error_message',
     ];
