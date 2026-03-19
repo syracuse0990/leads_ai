@@ -101,7 +101,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { Link, useForm, usePage, router as inertiaRouter } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { useDocumentProgress } from '@/composables/useWebSocket.js';
@@ -124,6 +124,7 @@ onMounted(() => {
     if (flash?.uploadedDocuments && flash.uploadedDocuments.length > 0) {
         uploadedDocs.value = flash.uploadedDocuments;
         processing.value = true;
+        startPolling();
     }
 });
 
@@ -144,6 +145,46 @@ watch(allDone, (done) => {
         }, 1500);
     }
 });
+
+// Polling fallback: check document status every 5s in case WebSocket events are missed
+let pollTimer = null;
+function startPolling() {
+    if (pollTimer) return;
+    pollTimer = setInterval(async () => {
+        if (uploadedDocs.value.length === 0) return;
+        const ids = uploadedDocs.value.map(d => d.id).join(',');
+        try {
+            const resp = await fetch(`/api/documents/status?ids=${ids}`);
+            const statuses = await resp.json();
+            let allFinished = true;
+            for (const doc of uploadedDocs.value) {
+                const s = statuses[doc.id];
+                if (s && (s.status === 'completed' || s.status === 'failed')) {
+                    // Inject into progress if WebSocket missed it
+                    const existing = getDocProgress(doc.id);
+                    if (!existing || (existing.stage !== 'completed' && existing.stage !== 'failed')) {
+                        wsProgress.value = new Map(wsProgress.value);
+                        wsProgress.value.set(doc.id, {
+                            stage: s.status,
+                            percent: s.status === 'completed' ? 100 : 0,
+                            message: s.status === 'completed' ? 'Done' : 'Failed',
+                        });
+                    }
+                } else {
+                    allFinished = false;
+                }
+            }
+            if (allFinished) {
+                clearInterval(pollTimer);
+                pollTimer = null;
+            }
+        } catch (e) {
+            // Ignore fetch errors, will retry
+        }
+    }, 5000);
+}
+
+onUnmounted(() => { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } if (redirectTimer) { clearTimeout(redirectTimer); redirectTimer = null; } });
 
 function handleFileSelect(e) {
     addFiles(e.target.files);

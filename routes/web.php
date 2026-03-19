@@ -30,6 +30,20 @@ Route::delete('/chat/{conversation}', [ChatController::class, 'destroyConversati
 Route::post('/chat/{conversation}/system-prompt', [ChatController::class, 'updateSystemPrompt'])->name('chat.systemPrompt');
 Route::post('/messages/{message}/feedback', [ChatController::class, 'feedback'])->name('messages.feedback');
 
+// API: Document status check (for polling fallback)
+Route::get('/api/documents/status', function (\Illuminate\Http\Request $request) {
+    $ids = explode(',', $request->query('ids', ''));
+    $ids = array_filter($ids, fn($id) => is_numeric($id));
+    if (empty($ids)) {
+        return response()->json([]);
+    }
+    return response()->json(
+        \App\Models\Document::whereIn('id', $ids)
+            ->get(['id', 'status'])
+            ->keyBy('id')
+    );
+})->name('documents.status');
+
 // API: Queue stats
 Route::get('/api/queue-stats', function () {
     return response()->json([

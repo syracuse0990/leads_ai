@@ -106,7 +106,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { useDocumentProgress } from '@/composables/useWebSocket.js';
@@ -123,12 +123,31 @@ const { progress, getProgress } = useDocumentProgress();
 watch(progress, (newProgress) => {
     for (const [docId, p] of newProgress) {
         if (p.stage === 'completed' || p.stage === 'failed') {
-            // Reload Inertia page data to get updated DB status, topic, etc.
             router.reload({ only: ['documents'], preserveState: true });
             return;
         }
     }
 }, { deep: true });
+
+// Polling fallback: check for status changes every 5s
+let pollTimer = null;
+function startStatusPolling() {
+    if (pollTimer) return;
+    const pendingDocs = () => props.documents.data.filter(d => d.status === 'pending' || d.status === 'processing');
+    if (pendingDocs().length === 0) return;
+    pollTimer = setInterval(() => {
+        const still = pendingDocs();
+        if (still.length === 0) {
+            clearInterval(pollTimer);
+            pollTimer = null;
+            return;
+        }
+        router.reload({ only: ['documents'], preserveState: true });
+    }, 5000);
+}
+
+onMounted(() => startStatusPolling());
+onUnmounted(() => { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } });
 
 const searchQuery = ref(props.filters?.search || '');
 const selectedTopic = ref(props.filters?.topic_id || '');
