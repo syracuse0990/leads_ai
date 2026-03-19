@@ -200,7 +200,6 @@ class TextExtractorService
 
     protected function extractFromPowerPoint(string $filePath): string
     {
-        // PhpSpreadsheet can't read PPTX, so we use the ZIP-based XML approach
         $zip = new \ZipArchive();
         if ($zip->open($filePath) !== true) {
             throw new \RuntimeException('Could not open PowerPoint file.');
@@ -208,24 +207,35 @@ class TextExtractorService
 
         $text = '';
         $slideIndex = 1;
+        $hasImageSlides = false;
 
         while (($xmlContent = $zip->getFromName("ppt/slides/slide{$slideIndex}.xml")) !== false) {
             $text .= "## Slide {$slideIndex}\n";
 
-            // Strip XML tags and extract text content
-            $xml = simplexml_load_string($xmlContent);
-            $xml->registerXPathNamespace('a', 'http://schemas.openxmlformats.org/drawingml/2006/main');
-            $paragraphs = $xml->xpath('//a:p');
+            // Extract ALL text from the slide XML (covers text boxes, tables, SmartArt, grouped shapes)
+            $slideText = $this->extractAllTextFromSlideXml($xmlContent);
 
-            foreach ($paragraphs as $paragraph) {
-                $runs = $paragraph->xpath('.//a:r/a:t');
-                $line = '';
-                foreach ($runs as $run) {
-                    $line .= (string) $run;
-                }
-                if (trim($line) !== '') {
-                    $text .= trim($line) . "\n";
-                }
+            // Also check notes for this slide
+            $notesXml = $zip->getFromName("ppt/notesSlides/notesSlide{$slideIndex}.xml");
+            $notesText = '';
+            if ($notesXml !== false) {
+                $notesText = $this->extractAllTextFromSlideXml($notesXml);
+                // Remove default placeholder text
+                $notesText = preg_replace('/^\d+$/m', '', $notesText);
+                $notesText = trim($notesText);
+            }
+
+            if (trim($slideText) !== '') {
+                $text .= $slideText . "\n";
+            }
+
+            if ($notesText !== '') {
+                $text .= "[Speaker Notes] " . $notesText . "\n";
+            }
+
+            // Check if this slide has images (for KIMI vision fallback)
+            if (mb_strlen(trim($slideText)) < 30) {
+                $hasImageSlides = true;
             }
 
             $text .= "\n";
@@ -234,7 +244,61 @@ class TextExtractorService
 
         $zip->close();
 
-        return trim($text);
+        $extractedText = trim($text);
+
+        // If very little text was extracted, the presentation is likely image-heavy
+        // Use KIMI vision to analyze the whole file as images would be ideal,
+        // but at minimum flag that content may be missing
+        if (mb_strlen($extractedText) < 50 && $slideIndex > 1) {
+            $extractedText .= "\n\n[Note: This presentation appears to be image-heavy. Text extraction may be incomplete.]";
+        }
+
+        return $extractedText;
+    }
+
+    /**
+     * Extract all text content from a PowerPoint XML string.
+     * Handles text boxes, tables, grouped shapes, SmartArt, and other elements.
+     */
+    protected function extractAllTextFromSlideXml(string $xmlContent): string
+    {
+        $xml = @simplexml_load_string($xmlContent);
+        if ($xml === false) {
+            return '';
+        }
+
+        // Register all relevant namespaces
+        $xml->registerXPathNamespace('a', 'http://schemas.openxmlformats.org/drawingml/2006/main');
+        $xml->registerXPathNamespace('p', 'http://schemas.openxmlformats.org/presentationml/2006/main');
+        $xml->registerXPathNamespace('r', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships');
+
+        // Get ALL paragraphs anywhere in the document (covers all shape types)
+        $paragraphs = $xml->xpath('//a:p');
+        if (!$paragraphs) {
+            return '';
+        }
+
+        $lines = [];
+        foreach ($paragraphs as $paragraph) {
+            // Get text from regular runs
+            $runs = $paragraph->xpath('.//a:r/a:t');
+            $line = '';
+            foreach ($runs as $run) {
+                $line .= (string) $run;
+            }
+
+            // Also get text from field codes (dates, slide numbers, etc.)
+            $fields = $paragraph->xpath('.//a:fld/a:t');
+            foreach ($fields as $field) {
+                $line .= (string) $field;
+            }
+
+            if (trim($line) !== '') {
+                $lines[] = trim($line);
+            }
+        }
+
+        return implode("\n", $lines);
     }
 
     protected function extractFromText(string $filePath): string
