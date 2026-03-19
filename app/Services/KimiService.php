@@ -35,7 +35,7 @@ class KimiService
             $response = Http::withHeaders([
                 'Authorization' => "Bearer {$this->apiKey}",
                 'Content-Type' => 'application/json',
-            ])->timeout(60)->post("{$this->baseUrl}/chat/completions", [
+            ])->timeout(120)->post("{$this->baseUrl}/chat/completions", [
                 'model' => $this->model,
                 'messages' => [
                     [
