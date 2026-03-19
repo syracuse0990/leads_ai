@@ -1,58 +1,143 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Leads AI — Document-Trained AI Assistant
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+An intelligent document training and chat system that lets you upload documents, automatically classifies them into topics, generates semantic embeddings, and provides accurate AI-powered answers grounded in your uploaded knowledge base.
 
-## About Laravel
+## Features
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+### Core
+- **Document Upload & Processing** — Upload PDF, Word, Excel, PowerPoint, images, and text files (up to 15MB). Documents are automatically processed via a background queue.
+- **AI-Powered Topic Classification** — Documents are auto-classified into topics using DeepSeek V3.2. New topics are created on the fly; existing ones are reused.
+- **Semantic Search (pgvector + HNSW)** — Document chunks are embedded using `all-MiniLM-L6-v2` sentence-transformers via a Python microservice. Search uses pgvector's native `<=>` cosine operator with HNSW indexing for sub-millisecond retrieval at scale.
+- **Hybrid Retrieval** — Combines vector similarity with keyword matching (content + document name) for high-accuracy results.
+- **Streaming AI Chat** — Real-time streamed responses via Server-Sent Events, powered by DeepSeek V3.2 with retrieved document context and conversation history.
+- **Multi-Turn Conversations** — Last 10 messages are included as context, enabling follow-up questions and coherent multi-turn dialogue.
+- **Source Attribution** — AI responses include source document references so users can verify answers.
+- **Image/Vision Processing** — KIMI K2.5 (Moonshot AI) extracts text from uploaded images for indexing.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+### Dashboard & Real-Time
+- **Live Dashboard** — Topic count, document count, chunk count, active conversations, and queue health — all updated in real-time via WebSocket.
+- **Topic Hits Chart** — Horizontal bar chart showing the top 15 most-queried topics.
+- **WebSocket Integration** — Pusher-compatible WebSocket server for live updates: document processing progress, toast notifications, dashboard stats, chat thinking indicator, queue health, and topic auto-updates.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+### UX
+- **Responsive Design** — Mobile hamburger menu, adaptive layout for all screen sizes.
+- **Chat Features** — Copy message button, thumbs up/down feedback, system prompt editor per conversation, auto-scroll during streaming, confirmation dialogs.
+- **Document Management** — Search by name, filter by topic/status, confirmation dialogs for deletion.
+- **Loading Indicators** — Animated loading bar on page navigation, processing progress bars for documents.
 
-## Learning Laravel
+## Tech Stack
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+| Layer | Technology |
+|-------|-----------|
+| **Backend** | Laravel 13, PHP 8.3 |
+| **Frontend** | Vue 3.5, Inertia.js 2, Tailwind CSS 4, Vite 8 |
+| **Database** | PostgreSQL 18 + pgvector (HNSW index) |
+| **Text AI** | DeepSeek V3.2 (chat, streaming, classification) |
+| **Vision AI** | KIMI K2.5 / Moonshot AI (image text extraction) |
+| **Embeddings** | sentence-transformers `all-MiniLM-L6-v2` (384d) via Python Flask microservice |
+| **WebSocket** | Pusher-compatible server (custom hosted) |
+| **Queue** | Laravel database queue with supervisor |
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## Architecture
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
-
-```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+```
+┌─────────────┐     ┌──────────────┐     ┌─────────────────┐
+│  Vue 3 SPA  │────▶│  Laravel API │────▶│  PostgreSQL +   │
+│  (Inertia)  │◀────│  Controllers │◀────│  pgvector       │
+└─────────────┘     └──────┬───────┘     └─────────────────┘
+                           │
+              ┌────────────┼────────────┐
+              ▼            ▼            ▼
+      ┌──────────┐ ┌────────────┐ ┌──────────────┐
+      │ DeepSeek │ │ Embedding  │ │  WebSocket   │
+      │ + KIMI   │ │ Server     │ │  Server      │
+      │ (APIs)   │ │ (Python)   │ │  (Pusher)    │
+      └──────────┘ └────────────┘ └──────────────┘
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+## Setup
 
-## Contributing
+### Prerequisites
+- PHP 8.3+, Composer
+- Node.js 20+, npm
+- PostgreSQL 16+ with pgvector extension
+- Python 3.10+ (for embedding server)
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### Installation
 
-## Code of Conduct
+```bash
+# Clone
+git clone https://github.com/syracuse0990/leads_ai.git
+cd leads_ai
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+# PHP dependencies
+composer install
 
-## Security Vulnerabilities
+# JavaScript dependencies
+npm install
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+# Environment
+cp .env.example .env
+php artisan key:generate
+# Edit .env with your database, API keys, and WebSocket settings
 
-## License
+# Database
+php artisan migrate
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+# Build frontend
+npm run build
+```
+
+### Embedding Server
+
+```bash
+cd embedding-server
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# Run (development)
+python server.py
+
+# Run (production with gunicorn)
+gunicorn -w 2 -b 127.0.0.1:9500 server:app
+```
+
+For production, install the systemd service:
+```bash
+sudo cp embedding-server.service /etc/systemd/system/
+sudo systemctl enable --now embedding-server
+```
+
+### Queue Worker
+
+```bash
+php artisan queue:work --queue=training,default
+```
+
+### Re-embed Existing Documents
+
+After setting up the embedding server, re-embed all chunks with the semantic model:
+```bash
+php artisan documents:reembed
+```
+
+## Environment Variables
+
+| Variable | Description |
+|----------|------------|
+| `DEEPSEEK_API_KEY` | DeepSeek API key for chat & classification |
+| `KIMI_API_KEY` | Moonshot AI API key for image processing |
+| `EMBEDDING_SERVER_URL` | Embedding microservice URL (default: `http://127.0.0.1:9500`) |
+| `SIMILARITY_THRESHOLD` | Cosine distance cutoff (default: `0.3`, lower = stricter) |
+| `WEBSOCKET_URL` | WebSocket server URL |
+| `WEBSOCKET_APP_KEY` | WebSocket app key |
+| `WEBSOCKET_APP_SECRET` | WebSocket app secret |
+
+## Deployment
+
+Production deployment configs are in `deployment/`:
+- `nginx.conf` — Nginx site configuration
+- `supervisor.conf` — Queue worker process manager
+- `php-fpm.conf` — PHP-FPM pool settings
+- `embedding-server/embedding-server.service` — Systemd service for the embedding server
