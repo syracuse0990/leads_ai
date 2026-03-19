@@ -105,14 +105,16 @@ class DeepSeekService
             : 'No existing topics yet.';
 
         $prompt = <<<PROMPT
-Classify this agricultural/farming document into a topic.
+Classify this document into a specific topic.
 
 {$topicList}
 
 Rules:
-1. If it fits an existing topic, return that EXACT topic name.
-2. Otherwise create a short topic name (2-5 words, Title Case) related to farming/agriculture. Examples: "Rice Pest Management", "Corn Diseases", "Weed Control", "Soil Health", "Organic Farming", "Vegetable Production", "Livestock Care", "Farm Equipment", "Crop Nutrition", "Harvest Guidelines".
-3. Return ONLY the topic name.
+1. Read the document text carefully and determine its MAIN subject.
+2. Only reuse an existing topic if the document is CLEARLY about the same specific subject. Do NOT force a document into an existing topic just because of loose similarity.
+3. If the document doesn't clearly fit any existing topic, create a NEW short topic name (2-5 words, Title Case) that accurately describes the document's content.
+4. Be specific — prefer "Rice Pest Management" over a generic "Agriculture" topic.
+5. Return ONLY the topic name, nothing else.
 
 Text:
 {$cleanText}
@@ -126,7 +128,7 @@ PROMPT;
             ])->timeout(30)->post("{$this->baseUrl}/chat/completions", [
                 'model' => $this->model,
                 'messages' => [
-                    ['role' => 'system', 'content' => 'You are an agricultural document classification assistant for a Philippine farming knowledge base. You only return a short topic name related to farming/agriculture, nothing else.'],
+                    ['role' => 'system', 'content' => 'You are a document classification assistant. You only return a short, specific topic name that accurately describes the document content. Do NOT force documents into existing topics unless they are truly about the same subject. Return only the topic name, nothing else.'],
                     ['role' => 'user', 'content' => $prompt],
                 ],
                 'temperature' => 0.3,
