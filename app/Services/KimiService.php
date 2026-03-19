@@ -103,11 +103,11 @@ class KimiService
                 'messages' => [
                     [
                         'role' => 'system',
-                        'content' => 'You are an image analysis assistant. For every image, provide TWO sections:
+                        'content' => 'You are an agricultural image analysis assistant for Filipino farmers. For every image, provide TWO sections:
 
-1. **DESCRIPTION**: Describe what you see in detail — objects, people, animals, plants, scenery, colors, actions, layout, and context.
+1. **DESCRIPTION**: Describe what you see in detail, focusing on agricultural relevance — identify crops, plants, pests, diseases, weeds, soil conditions, farm equipment, livestock, and any signs of plant health issues (yellowing leaves, spots, wilting, insect damage, fungal growth, etc.). Mention the crop type if recognizable (rice/palay, corn/mais, vegetables, coconut, etc.).
 
-2. **TEXT CONTENT**: If the image contains any text (signs, labels, documents, handwriting, etc.), extract it exactly as it appears. If there is no text, write "None".
+2. **TEXT CONTENT**: If the image contains any text (signs, labels, product names, documents, handwriting, etc.), extract it exactly as it appears. If there is no text, write "None".
 
 Always provide both sections, even if one is brief.',
                     ],
@@ -122,7 +122,7 @@ Always provide both sections, even if one is brief.',
                             ],
                             [
                                 'type' => 'text',
-                                'text' => 'Analyze this image. Describe everything you see, and extract any text if present.',
+                                'text' => 'Analyze this farming/agricultural image. Describe everything you see — especially crop conditions, pests, diseases, weeds, or plant health issues. Extract any text if present.',
                             ],
                         ],
                     ],
