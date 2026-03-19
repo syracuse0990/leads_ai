@@ -11,6 +11,7 @@ use App\Services\DeepSeekService;
 use App\Services\VectorSearchService;
 use App\Services\WebSocketService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -76,6 +77,13 @@ class ChatController extends Controller
         // Search across ALL topics — system auto-funnels based on question
         $results = $vectorSearch->search($validated['message']);
 
+        Log::info('Chat search results', [
+            'conversation_id' => $conversation->id,
+            'query' => $validated['message'],
+            'results_count' => count($results),
+            'sources' => array_map(fn($r) => $r['source'] . ' (dist: ' . round($r['distance'], 4) . ')', $results),
+        ]);
+
         // Build context with source attribution
         $context = array_map(fn($r) => "[Source: {$r['source']}]\n{$r['content']}", $results);
 
@@ -136,6 +144,13 @@ class ChatController extends Controller
 
         // Search across ALL topics — system auto-funnels based on question
         $results = $vectorSearch->search($validated['message']);
+
+        Log::info('Chat stream search results', [
+            'conversation_id' => $conversation->id,
+            'query' => $validated['message'],
+            'results_count' => count($results),
+            'sources' => array_map(fn($r) => $r['source'] . ' (dist: ' . round($r['distance'], 4) . ')', $results),
+        ]);
 
         // Build context with source attribution
         $context = array_map(fn($r) => "[Source: {$r['source']}]\n{$r['content']}", $results);

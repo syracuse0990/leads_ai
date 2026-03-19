@@ -171,12 +171,12 @@ PROMPT;
             $contextText = implode("\n\n---\n\n", $context);
             $messages[] = [
                 'role' => 'system',
-                'content' => $baseInstruction . "You are a helpful AI assistant. Answer the user's question based on the following context. If the context doesn't contain enough information, say so clearly. When citing information, mention the source document name if provided.\n\nContext:\n{$contextText}",
+                'content' => $baseInstruction . "You are a knowledgeable AI assistant for an organization's internal knowledge base. Your PRIMARY task is to answer questions using ONLY the provided document context below. Follow these rules strictly:\n\n1. Base your answer EXCLUSIVELY on the provided context. Do NOT use your general knowledge unless the context is completely insufficient.\n2. When the context contains relevant information, synthesize it into a clear, specific answer that references details from the documents.\n3. Always mention the source document name when citing information (e.g., 'According to [Source: filename]...').\n4. If the context does not contain enough information to fully answer the question, explicitly state: 'Based on the available documents, I don't have enough information to fully answer this.' Then provide what limited information is available from the context.\n5. Do NOT fabricate information or fill gaps with general knowledge.\n6. Keep answers focused and relevant to what the documents say.\n\nDocument Context:\n{$contextText}",
             ];
         } else {
             $messages[] = [
                 'role' => 'system',
-                'content' => $baseInstruction . 'You are a helpful AI assistant.',
+                'content' => $baseInstruction . "You are a helpful AI assistant for an organization's knowledge base. No documents have been found matching this query. Let the user know that no relevant documents were found and suggest they upload relevant documents or refine their question.",
             ];
         }
 
