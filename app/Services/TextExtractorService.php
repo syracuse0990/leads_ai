@@ -226,9 +226,12 @@ class TextExtractorService
 
             // If slide has very little text, try OCR on its embedded image
             if (mb_strlen(trim($slideText)) < 30) {
+                Log::info("PPTX slide {$slideIndex}: low text, attempting KIMI OCR");
                 $ocrText = $this->ocrSlideImage($zip, $slideIndex);
                 if ($ocrText !== '') {
                     $slideText = $ocrText;
+                    // Rate limit: small delay between OCR calls to avoid 429
+                    usleep(500000); // 0.5s
                 }
             }
 
