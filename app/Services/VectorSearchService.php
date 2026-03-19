@@ -15,7 +15,7 @@ class VectorSearchService
     {
         $this->embeddingService = $embeddingService;
         $this->topK = config('ai.search_top_k', 5);
-        $this->threshold = config('ai.similarity_threshold', 0.3);
+        $this->threshold = config('ai.similarity_threshold', 0.7);
     }
 
     /**
