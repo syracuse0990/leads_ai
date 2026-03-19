@@ -33,9 +33,29 @@ class TextExtractorService
 
     protected function extractFromPdf(string $filePath): string
     {
-        $parser = new PdfParser();
-        $pdf = $parser->parseFile($filePath);
-        return $pdf->getText();
+        // Try smalot/pdfparser first
+        try {
+            $parser = new PdfParser();
+            $pdf = $parser->parseFile($filePath);
+            $text = $pdf->getText();
+
+            if (!empty(trim($text))) {
+                return $text;
+            }
+        } catch (\Exception $e) {
+            // Fall through to pdftotext
+        }
+
+        // Fallback: use pdftotext (poppler-utils) for scanned/complex PDFs
+        $escapedPath = escapeshellarg($filePath);
+        $output = shell_exec("pdftotext {$escapedPath} - 2>/dev/null");
+
+        if (!empty(trim($output ?? ''))) {
+            return $output;
+        }
+
+        // Last resort: OCR via KIMI vision (treat each page as image)
+        return '';
     }
 
     protected function extractFromImage(string $filePath): string
