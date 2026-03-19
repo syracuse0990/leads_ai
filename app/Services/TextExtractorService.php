@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\Log;
 use PhpOffice\PhpWord\IOFactory as WordIOFactory;
 use PhpOffice\PhpSpreadsheet\IOFactory as SpreadsheetIOFactory;
 use Smalot\PdfParser\Parser as PdfParser;
@@ -207,22 +208,28 @@ class TextExtractorService
 
         $text = '';
         $slideIndex = 1;
-        $hasImageSlides = false;
 
         while (($xmlContent = $zip->getFromName("ppt/slides/slide{$slideIndex}.xml")) !== false) {
             $text .= "## Slide {$slideIndex}\n";
 
-            // Extract ALL text from the slide XML (covers text boxes, tables, SmartArt, grouped shapes)
+            // Extract text from XML (text boxes, tables, SmartArt, grouped shapes)
             $slideText = $this->extractAllTextFromSlideXml($xmlContent);
 
-            // Also check notes for this slide
+            // Also check notes
             $notesXml = $zip->getFromName("ppt/notesSlides/notesSlide{$slideIndex}.xml");
             $notesText = '';
             if ($notesXml !== false) {
                 $notesText = $this->extractAllTextFromSlideXml($notesXml);
-                // Remove default placeholder text
                 $notesText = preg_replace('/^\d+$/m', '', $notesText);
                 $notesText = trim($notesText);
+            }
+
+            // If slide has very little text, try OCR on its embedded image
+            if (mb_strlen(trim($slideText)) < 30) {
+                $ocrText = $this->ocrSlideImage($zip, $slideIndex);
+                if ($ocrText !== '') {
+                    $slideText = $ocrText;
+                }
             }
 
             if (trim($slideText) !== '') {
@@ -233,68 +240,106 @@ class TextExtractorService
                 $text .= "[Speaker Notes] " . $notesText . "\n";
             }
 
-            // Check if this slide has images (for KIMI vision fallback)
-            if (mb_strlen(trim($slideText)) < 30) {
-                $hasImageSlides = true;
-            }
-
             $text .= "\n";
             $slideIndex++;
         }
 
         $zip->close();
 
-        $extractedText = trim($text);
+        return trim($text);
+    }
 
-        // If very little text was extracted, the presentation is likely image-heavy
-        // Use KIMI vision to analyze the whole file as images would be ideal,
-        // but at minimum flag that content may be missing
-        if (mb_strlen($extractedText) < 50 && $slideIndex > 1) {
-            $extractedText .= "\n\n[Note: This presentation appears to be image-heavy. Text extraction may be incomplete.]";
+    /**
+     * Extract the main image from a slide and OCR it via KIMI vision.
+     */
+    protected function ocrSlideImage(\ZipArchive $zip, int $slideIndex): string
+    {
+        $relsXml = $zip->getFromName("ppt/slides/_rels/slide{$slideIndex}.xml.rels");
+        if (!$relsXml) {
+            return '';
         }
 
-        return $extractedText;
+        // Find image relationship: <Relationship ... Type="...image" Target="../media/imageN.ext"/>
+        $imagePath = null;
+        if (preg_match_all('/Relationship\s[^>]+>/s', $relsXml, $relMatches)) {
+            foreach ($relMatches[0] as $rel) {
+                if (str_contains($rel, 'relationships/image') && preg_match('/Target="\.\.\/media\/([^"]+)"/', $rel, $m)) {
+                    $imagePath = 'ppt/media/' . $m[1];
+                    break;
+                }
+            }
+        }
+
+        if (!$imagePath) {
+            return '';
+        }
+
+        $imageData = $zip->getFromName($imagePath);
+        if ($imageData === false) {
+            return '';
+        }
+
+        $ext = pathinfo($imagePath, PATHINFO_EXTENSION) ?: 'jpg';
+        $tmpFile = tempnam(sys_get_temp_dir(), 'pptx_slide_') . '.' . strtolower($ext);
+
+        try {
+            file_put_contents($tmpFile, $imageData);
+            $ocrText = $this->kimiService->extractTextFromImage($tmpFile);
+            return trim($ocrText);
+        } catch (\Exception $e) {
+            Log::warning("KIMI OCR failed for slide {$slideIndex}", ['error' => $e->getMessage()]);
+            return '';
+        } finally {
+            @unlink($tmpFile);
+            // tempnam creates a file too, clean up the one without extension
+            $base = preg_replace('/\.[^.]+$/', '', $tmpFile);
+            if ($base !== $tmpFile) {
+                @unlink($base);
+            }
+        }
     }
 
     /**
      * Extract all text content from a PowerPoint XML string.
-     * Handles text boxes, tables, grouped shapes, SmartArt, and other elements.
+     * Uses regex to extract <a:t> text runs — works regardless of XML namespace issues.
      */
     protected function extractAllTextFromSlideXml(string $xmlContent): string
     {
-        $xml = @simplexml_load_string($xmlContent);
-        if ($xml === false) {
-            return '';
-        }
-
-        // Register all relevant namespaces
-        $xml->registerXPathNamespace('a', 'http://schemas.openxmlformats.org/drawingml/2006/main');
-        $xml->registerXPathNamespace('p', 'http://schemas.openxmlformats.org/presentationml/2006/main');
-        $xml->registerXPathNamespace('r', 'http://schemas.openxmlformats.org/officeDocument/2006/relationships');
-
-        // Get ALL paragraphs anywhere in the document (covers all shape types)
-        $paragraphs = $xml->xpath('//a:p');
-        if (!$paragraphs) {
-            return '';
-        }
-
+        // Primary method: regex-based extraction of <a:t> elements (most reliable)
+        // This catches all text runs regardless of namespace prefix or XML structure
         $lines = [];
-        foreach ($paragraphs as $paragraph) {
-            // Get text from regular runs
-            $runs = $paragraph->xpath('.//a:r/a:t');
-            $line = '';
-            foreach ($runs as $run) {
-                $line .= (string) $run;
+        $currentLine = '';
+
+        // Split by paragraph boundaries to maintain text grouping
+        // PowerPoint paragraphs are wrapped in <a:p>...</a:p>
+        $paragraphs = preg_split('/<[^>]*:p[\s>]/', $xmlContent);
+
+        foreach ($paragraphs as $para) {
+            // Find the end of this paragraph
+            $endPos = strpos($para, ':p>');
+            if ($endPos !== false) {
+                $para = substr($para, 0, $endPos);
             }
 
-            // Also get text from field codes (dates, slide numbers, etc.)
-            $fields = $paragraph->xpath('.//a:fld/a:t');
-            foreach ($fields as $field) {
-                $line .= (string) $field;
+            // Extract all text run content: <a:t>text</a:t> or <X:t>text</X:t>
+            if (preg_match_all('/<[^>]*:t[^>]*>([^<]*)<\/[^>]*:t>/s', $para, $matches)) {
+                $line = implode('', $matches[1]);
+                $line = html_entity_decode(trim($line), ENT_QUOTES | ENT_XML1, 'UTF-8');
+                if ($line !== '') {
+                    $lines[] = $line;
+                }
             }
+        }
 
-            if (trim($line) !== '') {
-                $lines[] = trim($line);
+        // Fallback: if paragraph splitting didn't work, extract ALL <*:t> content
+        if (empty($lines)) {
+            if (preg_match_all('/<[^>]*:t[^>]*>([^<]+)<\/[^>]*:t>/s', $xmlContent, $matches)) {
+                foreach ($matches[1] as $text) {
+                    $text = html_entity_decode(trim($text), ENT_QUOTES | ENT_XML1, 'UTF-8');
+                    if ($text !== '') {
+                        $lines[] = $text;
+                    }
+                }
             }
         }
 
