@@ -113,7 +113,16 @@ class TextExtractorService
 
     protected function extractFromImage(string $filePath): string
     {
-        return $this->kimiService->extractTextFromImage($filePath);
+        // First try text extraction (for documents, screenshots with text, etc.)
+        $text = $this->kimiService->extractTextFromImage($filePath);
+        $cleanText = preg_replace('/[\x00-\x1F\x7F]+/', '', trim($text));
+
+        if (!empty($cleanText) && mb_strlen($cleanText) > 20) {
+            return $text;
+        }
+
+        // No meaningful text found — describe the image content instead
+        return $this->kimiService->describeImage($filePath);
     }
 
     protected function extractFromWord(string $filePath): string

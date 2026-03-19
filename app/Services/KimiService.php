@@ -83,4 +83,67 @@ class KimiService
 
         return $response->json('choices.0.message.content', '');
     }
+
+    /**
+     * Describe the visual content of an image using KIMI k2.5 multimodal vision.
+     * Used for photos/images where text extraction yields nothing useful.
+     */
+    public function describeImage(string $filePath): string
+    {
+        $imageData = base64_encode(file_get_contents($filePath));
+        $mimeType = mime_content_type($filePath) ?: 'image/png';
+
+        $response = null;
+        for ($attempt = 1; $attempt <= 3; $attempt++) {
+            $response = Http::withHeaders([
+                'Authorization' => "Bearer {$this->apiKey}",
+                'Content-Type' => 'application/json',
+            ])->timeout(120)->post("{$this->baseUrl}/chat/completions", [
+                'model' => $this->model,
+                'messages' => [
+                    [
+                        'role' => 'system',
+                        'content' => 'You are an image analysis assistant. Describe the image in detail: what objects, people, animals, plants, scenery, text, colors, and actions are visible. Be thorough and factual. Structure your description clearly.',
+                    ],
+                    [
+                        'role' => 'user',
+                        'content' => [
+                            [
+                                'type' => 'image_url',
+                                'image_url' => [
+                                    'url' => "data:{$mimeType};base64,{$imageData}",
+                                ],
+                            ],
+                            [
+                                'type' => 'text',
+                                'text' => 'Describe everything you see in this image in detail.',
+                            ],
+                        ],
+                    ],
+                ],
+                'temperature' => 0.3,
+            ]);
+
+            if ($response->successful()) {
+                break;
+            }
+
+            if ($response->status() === 429 && $attempt < 3) {
+                sleep(3 * $attempt);
+                continue;
+            }
+
+            break;
+        }
+
+        if ($response->failed()) {
+            Log::error('KIMI image description failed', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+            throw new \RuntimeException('Failed to describe image via KIMI vision: ' . $response->body());
+        }
+
+        return $response->json('choices.0.message.content', '');
+    }
 }
