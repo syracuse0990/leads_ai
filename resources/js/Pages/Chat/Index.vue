@@ -60,25 +60,29 @@
                 <div ref="messagesContainer" class="flex-1 overflow-y-auto p-4 space-y-4">
                     <div v-if="!activeConversation" class="flex h-full items-center justify-center">
                         <div class="text-center">
-                            <h2 class="text-xl font-semibold text-gray-400 mb-2">Start a conversation</h2>
-                            <p class="text-sm text-gray-600">Ask anything — the AI will search across all your trained data automatically.</p>
+                            <img src="/images/leads-logo.png" alt="Leads AI" class="h-16 w-16 mx-auto mb-4 rounded-full ring-2 ring-gray-700 opacity-60" />
+                            <h2 class="text-xl font-semibold text-gray-400 mb-2">Kumusta! Ask me anything about farming</h2>
+                            <p class="text-sm text-gray-600">Pests, diseases, plant health, weed control — I'll search your documents and help you out.</p>
                             <!-- Mobile: new chat button -->
                             <button @click="showNewChat = true" class="mt-4 md:hidden rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 transition">+ New Chat</button>
                         </div>
                     </div>
 
                     <div v-for="msg in allMessages" :key="msg.id || msg.tempId" class="flex" :class="msg.role === 'user' ? 'justify-end' : 'justify-start'">
-                        <div class="max-w-[75%] group/msg">
-                            <div class="rounded-xl px-4 py-3 text-sm"
-                                :class="msg.role === 'user'
-                                    ? 'bg-indigo-600 text-white rounded-br-sm'
-                                    : 'bg-gray-800 text-gray-200 rounded-bl-sm'">
-                                <div v-if="msg.role === 'user'" class="whitespace-pre-wrap">{{ msg.content }}</div>
-                                <div v-else class="prose prose-invert prose-sm max-w-none" v-html="renderMarkdown(msg.content)"></div>
-                                <span v-if="msg.streaming" class="inline-block w-1.5 h-4 ml-0.5 bg-indigo-400 animate-pulse"></span>
-                            </div>
-                            <!-- Actions for assistant messages -->
-                            <div v-if="msg.role === 'assistant' && msg.content && !msg.streaming" class="flex items-center gap-1 mt-1 opacity-0 group-hover/msg:opacity-100 transition">
+                        <div class="max-w-[75%] group/msg" :class="msg.role === 'assistant' ? 'flex gap-2.5' : ''">
+                            <!-- AI avatar -->
+                            <img v-if="msg.role === 'assistant'" src="/images/leads-logo.png" alt="Leads AI" class="h-7 w-7 rounded-full shrink-0 mt-1 ring-1 ring-gray-700" />
+                            <div>
+                                <div class="rounded-xl px-4 py-3 text-sm"
+                                    :class="msg.role === 'user'
+                                        ? 'bg-indigo-600 text-white rounded-br-sm'
+                                        : 'bg-gray-800 text-gray-200 rounded-bl-sm'">
+                                    <div v-if="msg.role === 'user'" class="whitespace-pre-wrap">{{ msg.content }}</div>
+                                    <div v-else class="prose prose-invert prose-sm max-w-none" v-html="renderMarkdown(msg.content)"></div>
+                                    <span v-if="msg.streaming" class="inline-block w-1.5 h-4 ml-0.5 bg-indigo-400 animate-pulse"></span>
+                                </div>
+                                <!-- Actions for assistant messages -->
+                                <div v-if="msg.role === 'assistant' && msg.content && !msg.streaming" class="flex items-center gap-1 mt-1 opacity-0 group-hover/msg:opacity-100 transition">
                                 <button @click="copyMessage(msg.content)" class="rounded p-1 text-gray-500 hover:text-white transition" title="Copy">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
                                 </button>
@@ -91,29 +95,37 @@
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018a2 2 0 01.485.06l3.76.94m-7 10v5a2 2 0 002 2h.096c.5 0 .905-.405.905-.904 0-.715.211-1.413.608-2.008L17 13V4m-7 10h2m5-10h2a2 2 0 012 2v6a2 2 0 01-2 2h-2.5" /></svg>
                                 </button>
                                 <span v-if="copiedId === (msg.id || msg.tempId)" class="text-[10px] text-emerald-400 ml-1">Copied!</span>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- AI Thinking / Searching indicator (from WebSocket) -->
+                    <!-- AI Thinking / Searching indicator (animated chat bubble) -->
                     <div v-if="aiThinking" class="flex justify-start">
-                        <div class="rounded-xl bg-gray-800 px-4 py-3">
-                            <div class="flex items-center gap-2 text-xs text-gray-400">
-                                <svg class="h-3.5 w-3.5 animate-spin text-indigo-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                Searching documents & thinking...
+                        <div class="flex gap-2.5">
+                            <img src="/images/leads-logo.png" alt="Leads AI" class="h-7 w-7 rounded-full shrink-0 mt-1 ring-1 ring-gray-700 animate-pulse" />
+                            <div class="rounded-xl bg-gray-800 rounded-bl-sm px-4 py-3">
+                                <div class="flex items-center gap-2">
+                                    <div class="flex gap-1">
+                                        <span class="h-2 w-2 rounded-full bg-indigo-400 animate-bounce" style="animation-delay: 0ms"></span>
+                                        <span class="h-2 w-2 rounded-full bg-indigo-400 animate-bounce" style="animation-delay: 150ms"></span>
+                                        <span class="h-2 w-2 rounded-full bg-indigo-400 animate-bounce" style="animation-delay: 300ms"></span>
+                                    </div>
+                                    <span class="text-xs text-gray-400 ml-1">Thinking...</span>
+                                </div>
                             </div>
                         </div>
                     </div>
 
                     <div v-if="isLoading && !streamingMessage && !aiThinking" class="flex justify-start">
-                        <div class="rounded-xl bg-gray-800 px-4 py-3">
-                            <div class="flex gap-1">
-                                <span class="h-2 w-2 rounded-full bg-gray-500 animate-bounce" style="animation-delay: 0ms"></span>
-                                <span class="h-2 w-2 rounded-full bg-gray-500 animate-bounce" style="animation-delay: 150ms"></span>
-                                <span class="h-2 w-2 rounded-full bg-gray-500 animate-bounce" style="animation-delay: 300ms"></span>
+                        <div class="flex gap-2.5">
+                            <img src="/images/leads-logo.png" alt="Leads AI" class="h-7 w-7 rounded-full shrink-0 mt-1 ring-1 ring-gray-700 opacity-50" />
+                            <div class="rounded-xl bg-gray-800 rounded-bl-sm px-4 py-3">
+                                <div class="flex gap-1">
+                                    <span class="h-2 w-2 rounded-full bg-gray-500 animate-bounce" style="animation-delay: 0ms"></span>
+                                    <span class="h-2 w-2 rounded-full bg-gray-500 animate-bounce" style="animation-delay: 150ms"></span>
+                                    <span class="h-2 w-2 rounded-full bg-gray-500 animate-bounce" style="animation-delay: 300ms"></span>
+                                </div>
                             </div>
                         </div>
                     </div>
