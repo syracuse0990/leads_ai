@@ -47,7 +47,7 @@ return [
     |--------------------------------------------------------------------------
     */
 
-    'search_top_k' => env('SEARCH_TOP_K', 5),      // number of nearest chunks to retrieve
-    'similarity_threshold' => env('SIMILARITY_THRESHOLD', 0.8),
+    'search_top_k' => env('SEARCH_TOP_K', 8),      // number of nearest chunks to retrieve
+    'similarity_threshold' => env('SIMILARITY_THRESHOLD', 0.65),
 
 ];

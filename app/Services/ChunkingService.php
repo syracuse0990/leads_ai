@@ -52,7 +52,67 @@ class ChunkingService
         // Clean text before chunking
         $text = $this->cleanText($text);
 
-        // Split into paragraphs first
+        // Slide-aware chunking: if text has slide markers (from PPTX extraction),
+        // split by slide first to preserve slide context
+        if (preg_match('/^## Slide \d+/m', $text)) {
+            return $this->chunkSlides($text);
+        }
+
+        return $this->chunkText($text);
+    }
+
+    /**
+     * Chunk presentation slides — each slide or group of small slides becomes a chunk.
+     */
+    protected function chunkSlides(string $text): array
+    {
+        // Split by slide headers
+        $slides = preg_split('/(?=^## Slide \d+)/m', $text, -1, PREG_SPLIT_NO_EMPTY);
+        $slides = array_map('trim', $slides);
+        $slides = array_filter($slides, fn($s) => mb_strlen($s) > 10);
+
+        $chunks = [];
+        $currentChunk = '';
+        $currentWordCount = 0;
+
+        foreach ($slides as $slide) {
+            $slideWords = str_word_count($slide);
+
+            // If a single slide exceeds chunk size, chunk it independently
+            if ($slideWords > $this->chunkSize) {
+                if ($currentWordCount > 0) {
+                    $chunks[] = trim($currentChunk);
+                    $currentChunk = '';
+                    $currentWordCount = 0;
+                }
+                // Split the large slide by sentences
+                $chunks = array_merge($chunks, $this->chunkText($slide));
+                continue;
+            }
+
+            // Merge very small slides (< 30 words) with the next one
+            if ($currentWordCount + $slideWords > $this->chunkSize && $currentWordCount > 0) {
+                $chunks[] = trim($currentChunk);
+                $currentChunk = $slide;
+                $currentWordCount = $slideWords;
+            } else {
+                $currentChunk .= ($currentWordCount > 0 ? "\n\n" : '') . $slide;
+                $currentWordCount += $slideWords;
+            }
+        }
+
+        if ($currentWordCount > 0) {
+            $chunks[] = trim($currentChunk);
+        }
+
+        return $chunks;
+    }
+
+    /**
+     * Standard text chunking — split by paragraphs with overlap.
+     */
+    protected function chunkText(string $text): array
+    {
         $paragraphs = preg_split('/\n\s*\n/', $text, -1, PREG_SPLIT_NO_EMPTY);
         $paragraphs = array_map('trim', $paragraphs);
         $paragraphs = array_filter($paragraphs, fn($p) => mb_strlen($p) > 10);

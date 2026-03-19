@@ -56,11 +56,11 @@ class VectorSearchService
         if (!empty($keywords)) {
             $boostParts = [];
             foreach ($keywords as $kw) {
-                $boostParts[] = "CASE WHEN LOWER(dc.content) LIKE ? THEN 0.25 ELSE 0 END";
+                $boostParts[] = "CASE WHEN LOWER(dc.content) LIKE ? THEN 0.3 ELSE 0 END";
                 $bindings[] = '%' . str_replace(['%', '_'], ['\%', '\_'], $kw) . '%';
             }
             foreach ($keywords as $kw) {
-                $boostParts[] = "CASE WHEN LOWER(d.original_name) LIKE ? THEN 0.3 ELSE 0 END";
+                $boostParts[] = "CASE WHEN LOWER(d.original_name) LIKE ? THEN 0.35 ELSE 0 END";
                 $bindings[] = '%' . str_replace(['%', '_'], ['\%', '\_'], $kw) . '%';
             }
             $keywordBoost = implode(' + ', $boostParts);
