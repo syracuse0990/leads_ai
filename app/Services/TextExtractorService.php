@@ -39,7 +39,9 @@ class TextExtractorService
             $pdf = $parser->parseFile($filePath);
             $text = $pdf->getText();
 
-            if (!empty(trim($text))) {
+            // Strip control characters (form feeds, etc.) before checking
+            $cleanText = preg_replace('/[\x00-\x1F\x7F]+/', '', trim($text));
+            if (!empty($cleanText) && mb_strlen($cleanText) > 20) {
                 return $text;
             }
         } catch (\Exception $e) {
@@ -50,7 +52,8 @@ class TextExtractorService
         $escapedPath = escapeshellarg($filePath);
         $output = shell_exec("pdftotext {$escapedPath} - 2>/dev/null");
 
-        if (!empty(trim($output ?? ''))) {
+        $cleanOutput = preg_replace('/[\x00-\x1F\x7F]+/', '', trim($output ?? ''));
+        if (!empty($cleanOutput) && mb_strlen($cleanOutput) > 20) {
             return $output;
         }
 
