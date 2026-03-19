@@ -26,7 +26,15 @@ class VectorSearchService
      */
     public function search(string $query, ?int $topicId = null): array
     {
-        $queryEmbedding = $this->embeddingService->embed($query);
+        try {
+            $queryEmbedding = $this->embeddingService->embed($query);
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::warning('Embedding failed for search query, returning empty results', [
+                'error' => $e->getMessage(),
+            ]);
+            return [];
+        }
+
         $vectorParam = '[' . implode(',', $queryEmbedding) . ']';
 
         // Extract meaningful keywords (skip stop words)

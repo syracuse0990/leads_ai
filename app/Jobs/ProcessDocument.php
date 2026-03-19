@@ -54,6 +54,12 @@ class ProcessDocument implements ShouldQueue
                 throw new \RuntimeException('No text could be extracted from the document.');
             }
 
+            Log::info('Text extracted from document', [
+                'document_id' => $this->document->id,
+                'text_length' => mb_strlen($text),
+                'text_preview' => mb_substr($text, 0, 200),
+            ]);
+
             $ws->documentProgress($this->document->id, 'extracting', 25, 'Text extracted');
 
             // 2. Auto-classify into a topic if not already assigned
