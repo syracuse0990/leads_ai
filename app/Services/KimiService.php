@@ -127,7 +127,7 @@ Always provide both sections, even if one is brief.',
                         ],
                     ],
                 ],
-                'temperature' => 0.3,
+                'temperature' => 1.0,
             ]);
 
             if ($response->successful()) {
@@ -190,7 +190,7 @@ Always provide both sections, even if one is brief.',
                         ],
                     ],
                 ],
-                'temperature' => 0.3,
+                'temperature' => 1.0,
             ]);
 
             if ($response->successful()) {
